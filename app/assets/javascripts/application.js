@@ -11,14 +11,18 @@
 // GO AFTER THE REQUIRES BELOW.
 //
 //= require jquery
-//= require jquery_ujs
-//= require_tree .
-//= require turbolinks
 //= require jquery.turbolinks
-//= require chart
-//= require foundation
+//= require jquery_ujs
+
+//= require vendor/jquery-ui-1.11.0.custom/jquery-ui.min
+
+//= require_tree .
+
+//= require bootstrap
+//= require turbolinks
+
+Turbolinks.enableTransitionCache();
 
 $(document).ready(function() {
-  $(document).foundation()
   $.setReadyEvent('page:change')
 })

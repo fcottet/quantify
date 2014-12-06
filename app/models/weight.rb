@@ -11,8 +11,8 @@
 #  fat_mass    :float
 #  fat_percent :float
 #  date        :datetime
-#  created_at  :datetime         not null
-#  updated_at  :datetime         not null
+#  created_at  :datetime
+#  updated_at  :datetime
 #  meta        :hstore
 #  source      :string(255)
 #
@@ -28,15 +28,31 @@ class Weight < ActiveRecord::Base
   belongs_to :user
 
   validates :value, presence: true, numericality: true
+  validates :lean_mass, numericality: true, allow_nil: true
+  validates :fat_mass, numericality: true, allow_nil: true
+  validates :fat_percent, numericality: true, allow_nil: true
   validates :date, presence: true
 
   before_save :calculate_all_known_values
 
-  def self.current
-    order("date DESC").first
+  def self.current(val, opts={})
+    return unless val.present?
+
+   opts = {
+      period: 7.days,
+      start: Date.today
+    }.merge(opts)
+
+    start = where("date >= ?", opts[:start]).order("date DESC").limit(1).first
+
+    return unless start.present? && start = start.date
+
+    records = select(val).where({
+      date: (start - opts[:period])..start
+    }).average(val)
   end
 
-  def self.most_recent(count)
+  def self.most_recent(count=1)
     order("date DESC").limit(count)
   end
 
@@ -48,7 +64,7 @@ class Weight < ActiveRecord::Base
 
   def calculate_bmi
     if user && user.height
-      self.bmi = Unit.new(value, :pounds).to(:kilograms) / ( Unit.new(user.height, :centimeters).to(:meters) ** 2 )
+      self.bmi = value / ( Unit.new(user.height, :centimeters).to_unit(:meters) ** 2 )
     end
   end
 

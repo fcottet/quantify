@@ -3,6 +3,7 @@
 --
 
 SET statement_timeout = 0;
+SET lock_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SET check_function_bodies = false;
@@ -64,20 +65,6 @@ CREATE EXTENSION IF NOT EXISTS hstore WITH SCHEMA public;
 COMMENT ON EXTENSION hstore IS 'data type for storing sets of (key, value) pairs';
 
 
---
--- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
-
-
---
--- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION postgis IS 'PostGIS geometry, geography, and raster spatial types and functions';
-
-
 SET search_path = public, pg_catalog;
 
 SET default_tablespace = '';
@@ -94,8 +81,10 @@ CREATE TABLE fitbit_accounts (
     oauth_token character varying(255),
     oauth_token_secret character varying(255),
     user_id integer,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    synced_at timestamp without time zone,
+    activated_at timestamp without time zone
 );
 
 
@@ -119,14 +108,15 @@ ALTER SEQUENCE fitbit_accounts_id_seq OWNED BY fitbit_accounts.id;
 
 
 --
--- Name: goals; Type: TABLE; Schema: public; Owner: -; Tablespace: 
+-- Name: foursquare_accounts; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
-CREATE TABLE goals (
+CREATE TABLE foursquare_accounts (
     id integer NOT NULL,
-    type character varying(255),
-    start timestamp without time zone,
-    "end" timestamp without time zone,
+    uid character varying(255),
+    oauth_token character varying(255),
+    activated_at timestamp without time zone,
+    synced_at timestamp without time zone,
     user_id integer,
     created_at timestamp without time zone,
     updated_at timestamp without time zone
@@ -134,10 +124,10 @@ CREATE TABLE goals (
 
 
 --
--- Name: goals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: foursquare_accounts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE goals_id_seq
+CREATE SEQUENCE foursquare_accounts_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -146,10 +136,47 @@ CREATE SEQUENCE goals_id_seq
 
 
 --
--- Name: goals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: foursquare_accounts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE goals_id_seq OWNED BY goals.id;
+ALTER SEQUENCE foursquare_accounts_id_seq OWNED BY foursquare_accounts.id;
+
+
+--
+-- Name: journal_entries; Type: TABLE; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE TABLE journal_entries (
+    id integer NOT NULL,
+    feelings text,
+    happiness integer,
+    strategies text,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    user_id integer,
+    encrypted_happiness character varying(255),
+    encrypted_strategies text,
+    encrypted_feelings text
+);
+
+
+--
+-- Name: journal_entries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE journal_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: journal_entries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE journal_entries_id_seq OWNED BY journal_entries.id;
 
 
 --
@@ -199,8 +226,11 @@ CREATE TABLE places (
     date timestamp without time zone,
     lat numeric,
     lng numeric,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    meta hstore,
+    source character varying(255),
+    response json
 );
 
 
@@ -224,6 +254,38 @@ ALTER SEQUENCE places_id_seq OWNED BY places.id;
 
 
 --
+-- Name: post_things; Type: TABLE; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE TABLE post_things (
+    id integer NOT NULL,
+    title character varying(255),
+    date timestamp without time zone,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone
+);
+
+
+--
+-- Name: post_things_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE post_things_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: post_things_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE post_things_id_seq OWNED BY post_things.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
@@ -233,13 +295,48 @@ CREATE TABLE schema_migrations (
 
 
 --
+-- Name: sleeps; Type: TABLE; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE TABLE sleeps (
+    id integer NOT NULL,
+    start timestamp without time zone,
+    "end" timestamp without time zone,
+    user_id integer,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    meta hstore,
+    source character varying(255)
+);
+
+
+--
+-- Name: sleeps_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE sleeps_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sleeps_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE sleeps_id_seq OWNED BY sleeps.id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE users (
     id integer NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
     email character varying(255) DEFAULT ''::character varying NOT NULL,
     encrypted_password character varying(255) DEFAULT ''::character varying NOT NULL,
     reset_password_token character varying(255),
@@ -254,7 +351,6 @@ CREATE TABLE users (
     locked_at timestamp without time zone,
     name character varying(255),
     height double precision,
-    authentication_token character varying(255),
     time_zone character varying(255) DEFAULT 'UTC'::character varying
 );
 
@@ -292,8 +388,8 @@ CREATE TABLE weights (
     fat_mass double precision,
     fat_percent double precision,
     date timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
     meta hstore,
     source character varying(255)
 );
@@ -325,12 +421,13 @@ ALTER SEQUENCE weights_id_seq OWNED BY weights.id;
 CREATE TABLE withings_accounts (
     id integer NOT NULL,
     userid character varying(255),
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
     oauth_token character varying(255),
     user_id integer,
     oauth_token_secret character varying(255),
-    synced_at timestamp without time zone
+    synced_at timestamp without time zone,
+    activated_at timestamp without time zone
 );
 
 
@@ -364,7 +461,14 @@ ALTER TABLE ONLY fitbit_accounts ALTER COLUMN id SET DEFAULT nextval('fitbit_acc
 -- Name: id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY goals ALTER COLUMN id SET DEFAULT nextval('goals_id_seq'::regclass);
+ALTER TABLE ONLY foursquare_accounts ALTER COLUMN id SET DEFAULT nextval('foursquare_accounts_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY journal_entries ALTER COLUMN id SET DEFAULT nextval('journal_entries_id_seq'::regclass);
 
 
 --
@@ -379,6 +483,20 @@ ALTER TABLE ONLY meals ALTER COLUMN id SET DEFAULT nextval('meals_id_seq'::regcl
 --
 
 ALTER TABLE ONLY places ALTER COLUMN id SET DEFAULT nextval('places_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY post_things ALTER COLUMN id SET DEFAULT nextval('post_things_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY sleeps ALTER COLUMN id SET DEFAULT nextval('sleeps_id_seq'::regclass);
 
 
 --
@@ -411,11 +529,19 @@ ALTER TABLE ONLY fitbit_accounts
 
 
 --
--- Name: goals_pkey; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
+-- Name: foursquare_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
-ALTER TABLE ONLY goals
-    ADD CONSTRAINT goals_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY foursquare_accounts
+    ADD CONSTRAINT foursquare_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: journal_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
+--
+
+ALTER TABLE ONLY journal_entries
+    ADD CONSTRAINT journal_entries_pkey PRIMARY KEY (id);
 
 
 --
@@ -432,6 +558,22 @@ ALTER TABLE ONLY places
 
 ALTER TABLE ONLY meals
     ADD CONSTRAINT meals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: post_things_pkey; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
+--
+
+ALTER TABLE ONLY post_things
+    ADD CONSTRAINT post_things_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sleeps_pkey; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
+--
+
+ALTER TABLE ONLY sleeps
+    ADD CONSTRAINT sleeps_pkey PRIMARY KEY (id);
 
 
 --
@@ -466,6 +608,13 @@ CREATE INDEX index_fitbit_accounts_on_user_id ON fitbit_accounts USING btree (us
 
 
 --
+-- Name: index_foursquare_accounts_on_user_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE INDEX index_foursquare_accounts_on_user_id ON foursquare_accounts USING btree (user_id);
+
+
+--
 -- Name: index_meals_on_user_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
@@ -473,10 +622,24 @@ CREATE INDEX index_meals_on_user_id ON meals USING btree (user_id);
 
 
 --
--- Name: index_users_on_authentication_token; Type: INDEX; Schema: public; Owner: -; Tablespace: 
+-- Name: index_places_on_meta; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
-CREATE UNIQUE INDEX index_users_on_authentication_token ON users USING btree (authentication_token);
+CREATE INDEX index_places_on_meta ON places USING gist (meta);
+
+
+--
+-- Name: index_sleeps_on_meta; Type: INDEX; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE INDEX index_sleeps_on_meta ON sleeps USING gist (meta);
+
+
+--
+-- Name: index_sleeps_on_start; Type: INDEX; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE INDEX index_sleeps_on_start ON sleeps USING btree (start);
 
 
 --
@@ -543,27 +706,6 @@ CREATE UNIQUE INDEX unique_schema_migrations ON schema_migrations USING btree (v
 
 
 --
--- Name: geometry_columns_delete; Type: RULE; Schema: public; Owner: -
---
-
-CREATE RULE geometry_columns_delete AS ON DELETE TO geometry_columns DO INSTEAD NOTHING;
-
-
---
--- Name: geometry_columns_insert; Type: RULE; Schema: public; Owner: -
---
-
-CREATE RULE geometry_columns_insert AS ON INSERT TO geometry_columns DO INSTEAD NOTHING;
-
-
---
--- Name: geometry_columns_update; Type: RULE; Schema: public; Owner: -
---
-
-CREATE RULE geometry_columns_update AS ON UPDATE TO geometry_columns DO INSTEAD NOTHING;
-
-
---
 -- PostgreSQL database dump complete
 --
 
@@ -625,8 +767,39 @@ INSERT INTO schema_migrations (version) VALUES ('20130816020401');
 
 INSERT INTO schema_migrations (version) VALUES ('20130819210218');
 
-INSERT INTO schema_migrations (version) VALUES ('20130820032604');
-
 INSERT INTO schema_migrations (version) VALUES ('20130913015037');
 
 INSERT INTO schema_migrations (version) VALUES ('20130913031613');
+
+INSERT INTO schema_migrations (version) VALUES ('20131231024056');
+
+INSERT INTO schema_migrations (version) VALUES ('20140108154856');
+
+INSERT INTO schema_migrations (version) VALUES ('20140109041557');
+
+INSERT INTO schema_migrations (version) VALUES ('20140110125408');
+
+INSERT INTO schema_migrations (version) VALUES ('20140113150329');
+
+INSERT INTO schema_migrations (version) VALUES ('20140118211647');
+
+INSERT INTO schema_migrations (version) VALUES ('20140124014335');
+
+INSERT INTO schema_migrations (version) VALUES ('20140125175905');
+
+INSERT INTO schema_migrations (version) VALUES ('20140126060623');
+
+INSERT INTO schema_migrations (version) VALUES ('20140126060624');
+
+INSERT INTO schema_migrations (version) VALUES ('20140203025359');
+
+INSERT INTO schema_migrations (version) VALUES ('20140521021713');
+
+INSERT INTO schema_migrations (version) VALUES ('20140712150021');
+
+INSERT INTO schema_migrations (version) VALUES ('20140712154647');
+
+INSERT INTO schema_migrations (version) VALUES ('20140712190721');
+
+INSERT INTO schema_migrations (version) VALUES ('20140712220030');
+

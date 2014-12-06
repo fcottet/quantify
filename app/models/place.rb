@@ -7,8 +7,11 @@
 #  date       :datetime
 #  lat        :decimal(, )
 #  lng        :decimal(, )
-#  created_at :datetime         not null
-#  updated_at :datetime         not null
+#  created_at :datetime
+#  updated_at :datetime
+#  meta       :hstore
+#  source     :string(255)
+#  response   :json
 #
 
 class Place < ActiveRecord::Base
@@ -20,5 +23,5 @@ class Place < ActiveRecord::Base
   validates :lat, presence: true, numericality: true
   validates :lng, presence: true, numericality: true
 
-  attr_accessible :date, :lat, :lng
+  attr_accessible :date, :lat, :lng, :response, :source, :meta
 end

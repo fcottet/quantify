@@ -4,46 +4,63 @@
 #
 #  id                 :integer          not null, primary key
 #  userid             :string(255)
-#  created_at         :datetime         not null
-#  updated_at         :datetime         not null
+#  created_at         :datetime
+#  updated_at         :datetime
 #  oauth_token        :string(255)
 #  user_id            :integer
 #  oauth_token_secret :string(255)
 #  synced_at          :datetime
+#  activated_at       :datetime
 #
 
-class WithingsAccount < DataProvider
+class WithingsAccount < ActiveRecord::Base
+  include DataProvider
+
   attr_accessible :userid, :oauth_token, :oauth_token_secret
 
   validates_presence_of :userid, :oauth_token, :oauth_token_secret
 
-  def get_user_data
-    if synced_at
-      sync_measurement_groups WithingsAccount.authenticated_user(id).send(:measurement_groups, { start_at: synced_at })
-    else
-      sync_measurement_groups WithingsAccount.authenticated_user(id).send(:measurement_groups)
+  data_provider_for :weights
+
+  def weights options={}
+    if options[:sync] == true && self.synced_at.present?
+      weights_since self.synced_at, options.except(:sync)
+      return
     end
 
-    update_attribute :synced_at, Time.now
+    # TODO: This needs to be wrapped in an external API rescue so that
+    # failures are handled gracefully
+    response = client.send(:measurement_groups, options)
+    process_weights response
   end
 
-  def sync_measurement_groups(measurement_groups)
-    measurement_groups.each do |measurement|
-      return if user.weights.where("meta @> 'grpid=>#{measurement.grpid.to_s}'").first
-      user.weights.create(
-        value: Unit.new(measurement.weight, :kilograms).to(:pounds),
-        date: measurement.taken_at,
-        fat_mass: Unit.new(measurement.fat, :kilograms).to(:pounds),
-        source: "WithingsAccount",
-        meta: {
-          grpid: measurement.grpid.to_s
-        }
-      )
-    end
+  def weights_since date=Date.current, options={}
+    weights({ start_at: date }.merge(options))
+  end
+
+  private
+
+  def client
+    WithingsAccount.authenticated_user(id)
   end
 
   def self.authenticated_user id
     user = WithingsAccount.find id
     Withings::User.authenticate(user.userid, user.oauth_token, user.oauth_token_secret)
+  end
+
+  def process_weights weights
+    weights.each do |weight|
+      next if user.weights.where("meta @> 'grpid=>#{weight.grpid.to_s}'").first
+      user.weights.create(
+        value: weight.weight,
+        date: weight.taken_at,
+        fat_mass: weight.fat,
+        source: "WithingsAccount",
+        meta: {
+          grpid: weight.grpid.to_s
+        }
+      )
+    end
   end
 end

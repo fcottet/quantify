@@ -6,15 +6,23 @@ require 'rails/all'
 # you've limited to :test, :development, or :production.
 Bundler.require(:default, Rails.env)
 
-module Bodyimage
+module Quantify
   class Application < Rails::Application
-    VERSION = "0.0.11"
+    VERSION = "0.0.13"
     # Settings in config/environments/* take precedence over those specified here.
     # Application configuration should go into files in config/initializers
     # -- all .rb files in that directory are automatically loaded.
 
     # Custom directories with classes and modules you want to be autoloadable.
     # config.autoload_paths += %W(#{config.root}/extras)
+    config.autoload_paths += %W(
+        #{config.root}/lib
+        #{config.root}/app/controllers/concerns
+        #{config.root}/app/models/concerns
+    )
+
+    # http://stackoverflow.com/questions/20361428/rails-i18n-validation-deprecation-warning
+    config.i18n.enforce_available_locales = false
 
     # Only load the plugins named here, in the order given (default is alphabetical).
     # :all can be used as a placeholder for all plugins not explicitly named.
@@ -35,7 +43,7 @@ module Bodyimage
     config.encoding = "utf-8"
 
     # Configure sensitive parameters which will be filtered from the log file.
-    config.filter_parameters += [:password, :password_confirmation]
+    config.filter_parameters += [:password, :password_confirmation, :feelings, :happiness, :strategies]
 
     # Enable escaping HTML in JSON.
     config.active_support.escape_html_entities_in_json = true
@@ -55,18 +63,16 @@ module Bodyimage
     config.assets.enabled = true
 
     # Version of your assets, change this if you want to expire all your assets
-    config.assets.version = '1.0'
+    config.assets.version = VERSION
 
     config.autoload_paths += %W(
       models
       extensions/models
     ).map{|path| File.join(config.root,'app',path)}
 
-
-
     config.generators do |g|
         g.test_framework :rspec, fixture: true
-        g.fixture_replacement :factory_girl, dir: 'spec/factories'
+        g.fixture_replacement :fabraction, dir: 'spec/fabricators'
         g.view_specs false
         g.helper_specs false
         g.stylesheets = false

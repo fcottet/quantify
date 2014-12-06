@@ -7,8 +7,11 @@
 #  date       :datetime
 #  lat        :decimal(, )
 #  lng        :decimal(, )
-#  created_at :datetime         not null
-#  updated_at :datetime         not null
+#  created_at :datetime
+#  updated_at :datetime
+#  meta       :hstore
+#  source     :string(255)
+#  response   :json
 #
 
 require 'spec_helper'

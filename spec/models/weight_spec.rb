@@ -11,8 +11,8 @@
 #  fat_mass    :float
 #  fat_percent :float
 #  date        :datetime
-#  created_at  :datetime         not null
-#  updated_at  :datetime         not null
+#  created_at  :datetime
+#  updated_at  :datetime
 #  meta        :hstore
 #  source      :string(255)
 #
@@ -22,6 +22,9 @@ require 'spec_helper'
 describe Weight do
   it { should validate_presence_of :value }
   it { should validate_numericality_of :value }
+  it { should validate_numericality_of :lean_mass }
+  it { should validate_numericality_of :fat_mass }
+  it { should validate_numericality_of :fat_percent }
   it { should belong_to(:user) }
   it { should validate_presence_of :date }
 
@@ -39,7 +42,7 @@ describe Weight do
     end
     context "when user has a height" do
       it "returns a value" do
-        weight_with_height.calculate_bmi.should eq(11.662604224058766)
+        weight_with_height.calculate_bmi.should eq(25.711662075298435)
       end
     end
   end
@@ -69,6 +72,10 @@ describe Weight do
         weight.lean_mass.should(eq(5.0)) && weight.fat_mass.should(eq(5.0))
       end
     end
+  end
+
+  describe ".interpolate" do
+    pending
   end
 
 end

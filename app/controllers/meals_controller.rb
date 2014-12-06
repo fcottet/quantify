@@ -1,5 +1,6 @@
 class MealsController < ApplicationController
-  before_filter :authenticate_user!
+  before_action :authenticate_user!
+  before_action :set_meal, only: [:show, :edit, :update, :destroy]
   load_and_authorize_resource
 
   # GET /meals
@@ -18,8 +19,6 @@ class MealsController < ApplicationController
   # GET /meals/1
   # GET /meals/1.json
   def show
-    @meal = Meal.find(params[:id])
-
     respond_to do |format|
       format.html # show.html.erb
       format.json { render json: @meal }
@@ -30,6 +29,7 @@ class MealsController < ApplicationController
   # GET /meals/new.json
   def new
     @meal = Meal.new
+    @meal.date = Date.current
 
     respond_to do |format|
       format.html # new.html.erb
@@ -39,13 +39,12 @@ class MealsController < ApplicationController
 
   # GET /meals/1/edit
   def edit
-    @meal = Meal.find(params[:id])
   end
 
   # POST /meals
   # POST /meals.json
   def create
-    @meal = current_user.meals.new(params[:meal])
+    @meal = current_user.meals.new(meal_params)
 
     respond_to do |format|
       if @meal.save
@@ -61,10 +60,8 @@ class MealsController < ApplicationController
   # PUT /meals/1
   # PUT /meals/1.json
   def update
-    @meal = Meal.find(params[:id])
-
     respond_to do |format|
-      if @meal.update_attributes(params[:meal])
+      if @meal.update_attributes(meal_params)
         format.html { redirect_to meals_path, notice: 'Meal was successfully updated.' }
         format.json { head :no_content }
       else
@@ -77,7 +74,6 @@ class MealsController < ApplicationController
   # DELETE /meals/1
   # DELETE /meals/1.json
   def destroy
-    @meal = Meal.find(params[:id])
     @meal.destroy
 
     respond_to do |format|
@@ -85,4 +81,17 @@ class MealsController < ApplicationController
       format.json { head :no_content }
     end
   end
+
+  private
+
+  # Use callbacks to share common setup or constraints between actions.
+  def set_meal
+    @meal = Meal.find(params[:id])
+  end
+
+  # Only allow a trusted parameter "white list" through.
+  def meal_params
+    params.require(:meal).permit(:date, :calories, :carbohydrates, :fat, :protein, :description)
+  end
+
 end
